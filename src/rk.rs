@@ -5,7 +5,7 @@ use crate::{
 
 use anyhow::Result;
 use num_traits::Float;
-use std::{cell::RefCell, ops::AddAssign};
+use std::{cell::RefCell, ops::AddAssign, process::Output};
 
 trait Step<T, B, const S: usize, const D: usize>
 where
@@ -15,15 +15,41 @@ where
     fn step(&self) -> Result<()>;
 }
 
-pub trait Solve<T, B, const S: usize, const D: usize>
+pub struct Solution<T, const D: usize>
 where
-    T: Float,
-    B: Butcher<T, S>,
+    T: Float + Default,
 {
-    fn solve(&self, t_0: T, t_max: T, y_0: [T; D]) -> Result<()>;
+    t: Vec<T>,
+    y: Vec<[T; D]>,
 }
 
-pub struct RungaKutta<T, B, F, A, const S: usize, const D: usize>
+impl<T, const D: usize> Solution<T, D>
+where
+    T: Float + Default,
+{
+    fn new(t: Vec<T>, y: Vec<[T; D]>) -> Self {
+        Self { t, y }
+    }
+    pub fn t(&self) -> &Vec<T> {
+        &self.t
+    }
+    pub fn y(&self) -> &Vec<[T; D]> {
+        &self.y
+    }
+    pub fn take(self) -> (Vec<T>, Vec<[T; D]>) {
+        (self.t, self.y)
+    }
+}
+
+pub trait Solve<T, B, const S: usize, const D: usize>
+where
+    T: Float + Default,
+    B: Butcher<T, S>,
+{
+    fn solve(self, t_0: T, t_max: T, y_0: [T; D]) -> Result<Solution<T, D>>;
+}
+
+pub struct RungeKutta<T, B, F, A, const S: usize, const D: usize>
 where
     T: Float,
     B: Butcher<T, S>,
@@ -38,9 +64,9 @@ where
 }
 
 // Base Implementation
-impl<T, B, F, A, const S: usize, const D: usize> RungaKutta<T, B, F, A, S, D>
+impl<T, B, F, A, const S: usize, const D: usize> RungeKutta<T, B, F, A, S, D>
 where
-    T: Float,
+    T: Float + Default,
     B: Butcher<T, S>,
     F: Fn(T, [T; D], &A) -> [T; D],
 {
@@ -55,12 +81,13 @@ where
         }
     }
 
-    pub fn unpack(self) -> (Vec<T>, Vec<[T; D]>) {
-        (self.t.into_inner(), self.y.into_inner())
+    fn into_solution(self) -> Solution<T, D> {
+        Solution::new(self.t.into_inner(), self.y.into_inner())
     }
 }
 
-impl<T, E, F, A, const S: usize, const D: usize> Step<T, E, S, D> for RungaKutta<T, E, F, A, S, D>
+// Explicit Case
+impl<T, E, F, A, const S: usize, const D: usize> Step<T, E, S, D> for RungeKutta<T, E, F, A, S, D>
 where
     T: Float + Default + AddAssign,
     E: Explicit<T, S>,
@@ -119,13 +146,13 @@ where
     }
 }
 
-impl<T, E, F, A, const S: usize, const D: usize> Solve<T, E, S, D> for RungaKutta<T, E, F, A, S, D>
+impl<T, E, F, A, const S: usize, const D: usize> Solve<T, E, S, D> for RungeKutta<T, E, F, A, S, D>
 where
     T: Float + Default + AddAssign,
     E: Explicit<T, S>,
     F: Fn(T, [T; D], &A) -> [T; D],
 {
-    fn solve(&self, t_0: T, t_max: T, y_0: [T; D]) -> Result<()> {
+    fn solve(self, t_0: T, t_max: T, y_0: [T; D]) -> Result<Solution<T, D>> {
         self.t.replace(vec![t_0]);
         self.y.replace(vec![y_0]);
 
@@ -149,6 +176,6 @@ where
             self.step()?;
         }
 
-        Ok(())
+        Ok(self.into_solution())
     }
 }

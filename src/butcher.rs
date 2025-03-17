@@ -1,5 +1,3 @@
-use std::usize;
-
 use num_traits::Float;
 
 pub trait Butcher<F, const S: usize>
