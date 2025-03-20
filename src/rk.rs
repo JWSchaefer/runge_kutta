@@ -5,9 +5,9 @@ use crate::{
 
 use anyhow::Result;
 use num_traits::Float;
-use std::{cell::RefCell, ops::AddAssign, process::Output};
+use std::{cell::RefCell, ops::AddAssign};
 
-trait Step<T, B, const S: usize, const D: usize>
+trait Step<T, B, const S: usize, const Y: usize>
 where
     T: Float,
     B: Butcher<T, S>,
@@ -15,60 +15,60 @@ where
     fn step(&self) -> Result<()>;
 }
 
-pub struct Solution<T, const D: usize>
+pub struct Solution<T, const Y: usize>
 where
     T: Float + Default,
 {
     t: Vec<T>,
-    y: Vec<[T; D]>,
+    y: Vec<[T; Y]>,
 }
 
-impl<T, const D: usize> Solution<T, D>
+impl<T, const Y: usize> Solution<T, Y>
 where
     T: Float + Default,
 {
-    fn new(t: Vec<T>, y: Vec<[T; D]>) -> Self {
+    fn new(t: Vec<T>, y: Vec<[T; Y]>) -> Self {
         Self { t, y }
     }
     pub fn t(&self) -> &Vec<T> {
         &self.t
     }
-    pub fn y(&self) -> &Vec<[T; D]> {
+    pub fn y(&self) -> &Vec<[T; Y]> {
         &self.y
     }
-    pub fn take(self) -> (Vec<T>, Vec<[T; D]>) {
+    pub fn take(self) -> (Vec<T>, Vec<[T; Y]>) {
         (self.t, self.y)
     }
 }
 
-pub trait Solve<T, B, const S: usize, const D: usize>
+pub trait SolveIVP<T, B, const S: usize, const Y: usize>
 where
     T: Float + Default,
     B: Butcher<T, S>,
 {
-    fn solve(self, t_0: T, t_max: T, y_0: [T; D]) -> Result<Solution<T, D>>;
+    fn solve(self, t_0: T, t_max: T, y_0: [T; Y]) -> Result<Solution<T, Y>>;
 }
 
-pub struct RungeKutta<T, B, F, A, const S: usize, const D: usize>
+pub struct RungeKutta<T, B, F, A, const S: usize, const Y: usize>
 where
     T: Float,
     B: Butcher<T, S>,
-    F: Fn(T, [T; D], &A) -> [T; D],
+    F: Fn(T, [T; Y], &A) -> [T; Y],
 {
     f: F,
     args: A,
     tableau: B,
     t: RefCell<Vec<T>>,
-    y: RefCell<Vec<[T; D]>>,
+    y: RefCell<Vec<[T; Y]>>,
     h: RefCell<T>,
 }
 
 // Base Implementation
-impl<T, B, F, A, const S: usize, const D: usize> RungeKutta<T, B, F, A, S, D>
+impl<T, B, F, A, const S: usize, const Y: usize> RungeKutta<T, B, F, A, S, Y>
 where
     T: Float + Default,
     B: Butcher<T, S>,
-    F: Fn(T, [T; D], &A) -> [T; D],
+    F: Fn(T, [T; Y], &A) -> [T; Y],
 {
     pub fn new(tableau: B, f: F, args: A, h: T) -> Self {
         Self {
@@ -81,17 +81,17 @@ where
         }
     }
 
-    fn into_solution(self) -> Solution<T, D> {
+    fn into_solution(self) -> Solution<T, Y> {
         Solution::new(self.t.into_inner(), self.y.into_inner())
     }
 }
 
 // Explicit Case
-impl<T, E, F, A, const S: usize, const D: usize> Step<T, E, S, D> for RungeKutta<T, E, F, A, S, D>
+impl<T, E, F, A, const S: usize, const Y: usize> Step<T, E, S, Y> for RungeKutta<T, E, F, A, S, Y>
 where
     T: Float + Default + AddAssign,
     E: Explicit<T, S>,
-    F: Fn(T, [T; D], &A) -> [T; D],
+    F: Fn(T, [T; Y], &A) -> [T; Y],
 {
     fn step(&self) -> Result<()> {
         let mut y = self.y.borrow_mut();
@@ -110,14 +110,14 @@ where
         let b = self.tableau.b();
         let c = self.tableau.c();
 
-        let mut k: [[T; D]; S] = [[T::default(); D]; S];
+        let mut k: [[T; Y]; S] = [[T::default(); Y]; S];
 
         // Calculate k
         for i in 0..S {
             let _t: T = *t_n + c[i] * *h;
-            let mut _y: [T; D] = [T::default(); D];
+            let mut _y: [T; Y] = [T::default(); Y];
 
-            for d in 0..D {
+            for d in 0..Y {
                 _y[d] = y_n[d];
                 for l in 0..i {
                     _y[d] += (a[i][l] * k[l][d]) * *h;
@@ -128,10 +128,10 @@ where
         }
 
         let t_np1 = *t_n + *h;
-        let mut y_np1: [T; D] = [T::default(); D];
+        let mut y_np1: [T; Y] = [T::default(); Y];
 
         // Caculate y_n+1
-        for d in 0..D {
+        for d in 0..Y {
             y_np1[d] = y_n[d];
             for i in 0..S {
                 y_np1[d] += *h * b[i] * k[i][d]
@@ -146,13 +146,14 @@ where
     }
 }
 
-impl<T, E, F, A, const S: usize, const D: usize> Solve<T, E, S, D> for RungeKutta<T, E, F, A, S, D>
+impl<T, E, F, A, const S: usize, const Y: usize> SolveIVP<T, E, S, Y>
+    for RungeKutta<T, E, F, A, S, Y>
 where
     T: Float + Default + AddAssign,
     E: Explicit<T, S>,
-    F: Fn(T, [T; D], &A) -> [T; D],
+    F: Fn(T, [T; Y], &A) -> [T; Y],
 {
-    fn solve(self, t_0: T, t_max: T, y_0: [T; D]) -> Result<Solution<T, D>> {
+    fn solve(self, t_0: T, t_max: T, y_0: [T; Y]) -> Result<Solution<T, Y>> {
         self.t.replace(vec![t_0]);
         self.y.replace(vec![y_0]);
 
@@ -160,20 +161,19 @@ where
 
         loop {
             {
-                if let Some(t) = self.t.borrow_mut().last() {
-                    if *t + *self.h.borrow() > t_max {
-                        stop = true;
-                    }
-                } else {
-                    return Err(SolverError::Uninitialised("t".to_string()).into());
+                let t = self.t.borrow_mut();
+                let t_n = t.last().unwrap();
+                let mut h = self.h.borrow_mut();
+
+                if t_max - *t_n < *h {
+                    *h = t_max - *t_n;
+                    stop = true;
                 }
             }
-
+            self.step()?;
             if stop {
                 break;
             }
-
-            self.step()?;
         }
 
         Ok(self.into_solution())

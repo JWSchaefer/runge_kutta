@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use rk::methods::explicit::RK4;
-use rk::{RungeKutta, Solve};
+use rk::{RungeKutta, SolveIVP};
 
 fn pendulum(_t: f64, y: [f64; 2], args: &(f64, f64)) -> [f64; 2] {
     let [theta, theta_dot] = y;
@@ -19,5 +19,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let solver = RungeKutta::new(RK4, pendulum, args, delta_t);
     let solution = solver.solve(t_0, t_max, y_0)?;
+    println!("{:.4}", solution.t().last().expect("Shit"));
     Ok(())
 }

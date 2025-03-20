@@ -7,4 +7,4 @@ pub mod methods {
 
 pub use butcher::{Adaptive, Butcher, Explicit, Implicit, Nystrom};
 
-pub use rk::{RungeKutta, Solve};
+pub use rk::{RungeKutta, SolveIVP};
