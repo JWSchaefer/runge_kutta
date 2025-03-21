@@ -3,16 +3,15 @@ use crate::{
     errors::SolverError,
 };
 
-use anyhow::Result;
 use num_traits::Float;
+use std::error::Error;
+use std::result::Result;
 use std::{cell::RefCell, ops::AddAssign};
 
-trait Step<T, B, const S: usize, const Y: usize>
-where
-    T: Float,
-    B: Butcher<T, S>,
-{
-    fn step(&self) -> Result<()>;
+/* trait Function<T, A, const Y: usize>: Fn(T, [T; Y], &A) -> Result<[T; Y], Box<dyn Error>> {} */
+
+trait Step {
+    fn step(&self) -> Result<(), Box<dyn Error>>;
 }
 
 pub struct Solution<T, const Y: usize>
@@ -41,19 +40,18 @@ where
     }
 }
 
-pub trait SolveIVP<T, B, const S: usize, const Y: usize>
+pub trait SolveIVP<T, const Y: usize>
 where
     T: Float + Default,
-    B: Butcher<T, S>,
 {
-    fn solve(self, t_0: T, t_max: T, y_0: [T; Y]) -> Result<Solution<T, Y>>;
+    fn solve_ivp(self, t_0: T, t_max: T, y_0: [T; Y]) -> Result<Solution<T, Y>, Box<dyn Error>>;
 }
 
 pub struct RungeKutta<T, B, F, A, const S: usize, const Y: usize>
 where
     T: Float,
     B: Butcher<T, S>,
-    F: Fn(T, [T; Y], &A) -> [T; Y],
+    F: Fn(T, [T; Y], &A) -> Result<[T; Y], Box<dyn Error>>,
 {
     f: F,
     args: A,
@@ -68,7 +66,7 @@ impl<T, B, F, A, const S: usize, const Y: usize> RungeKutta<T, B, F, A, S, Y>
 where
     T: Float + Default,
     B: Butcher<T, S>,
-    F: Fn(T, [T; Y], &A) -> [T; Y],
+    F: Fn(T, [T; Y], &A) -> Result<[T; Y], Box<dyn Error>>,
 {
     pub fn new(tableau: B, f: F, args: A, h: T) -> Self {
         Self {
@@ -87,13 +85,13 @@ where
 }
 
 // Explicit Case
-impl<T, E, F, A, const S: usize, const Y: usize> Step<T, E, S, Y> for RungeKutta<T, E, F, A, S, Y>
+impl<T, E, F, A, const S: usize, const Y: usize> Step for RungeKutta<T, E, F, A, S, Y>
 where
     T: Float + Default + AddAssign,
     E: Explicit<T, S>,
-    F: Fn(T, [T; Y], &A) -> [T; Y],
+    F: Fn(T, [T; Y], &A) -> Result<[T; Y], Box<dyn Error>>,
 {
-    fn step(&self) -> Result<()> {
+    fn step(&self) -> Result<(), Box<dyn Error>> {
         let mut y = self.y.borrow_mut();
         let mut t = self.t.borrow_mut();
 
@@ -124,7 +122,7 @@ where
                 }
             }
 
-            k[i] = (self.f)(_t, _y, &self.args);
+            k[i] = (self.f)(_t, _y, &self.args)?;
         }
 
         let t_np1 = *t_n + *h;
@@ -146,14 +144,13 @@ where
     }
 }
 
-impl<T, E, F, A, const S: usize, const Y: usize> SolveIVP<T, E, S, Y>
-    for RungeKutta<T, E, F, A, S, Y>
+impl<T, E, F, A, const S: usize, const Y: usize> SolveIVP<T, Y> for RungeKutta<T, E, F, A, S, Y>
 where
     T: Float + Default + AddAssign,
     E: Explicit<T, S>,
-    F: Fn(T, [T; Y], &A) -> [T; Y],
+    F: Fn(T, [T; Y], &A) -> Result<[T; Y], Box<dyn Error>>,
 {
-    fn solve(self, t_0: T, t_max: T, y_0: [T; Y]) -> Result<Solution<T, Y>> {
+    fn solve_ivp(self, t_0: T, t_max: T, y_0: [T; Y]) -> Result<Solution<T, Y>, Box<dyn Error>> {
         self.t.replace(vec![t_0]);
         self.y.replace(vec![y_0]);
 

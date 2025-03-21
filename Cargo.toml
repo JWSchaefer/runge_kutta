@@ -1,11 +1,10 @@
 [package]
-name = "rk"
+name = "runge_kutta"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 anyhow = "1.0.97"
-
 num-traits = "0.2.19"
 thiserror = "2.0.12"
 

@@ -1,10 +1,10 @@
 pub mod butcher;
-pub mod errors;
-pub mod rk;
+mod errors;
+pub mod runge_kutta;
 pub mod methods {
     pub mod explicit;
 }
 
 pub use butcher::{Adaptive, Butcher, Explicit, Implicit, Nystrom};
 
-pub use rk::{RungeKutta, SolveIVP};
+pub use runge_kutta::{RungeKutta, SolveIVP};
