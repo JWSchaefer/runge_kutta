@@ -1,55 +1,27 @@
+use crate::solution::Solution;
 use crate::{
     butcher::{Butcher, Explicit, Implicit},
     errors::SolverError,
 };
-
 use num_traits::Float;
 use std::error::Error;
 use std::result::Result;
 use std::{cell::RefCell, ops::AddAssign};
 
-/* trait Function<T, A, const Y: usize>: Fn(T, [T; Y], &A) -> Result<[T; Y], Box<dyn Error>> {} */
-
 trait Step {
     fn step(&self) -> Result<(), Box<dyn Error>>;
 }
 
-pub struct Solution<T, const Y: usize>
-where
-    T: Float + Default,
-{
-    t: Vec<T>,
-    y: Vec<[T; Y]>,
-}
-
-impl<T, const Y: usize> Solution<T, Y>
-where
-    T: Float + Default,
-{
-    fn new(t: Vec<T>, y: Vec<[T; Y]>) -> Self {
-        Self { t, y }
-    }
-    pub fn t(&self) -> &Vec<T> {
-        &self.t
-    }
-    pub fn y(&self) -> &Vec<[T; Y]> {
-        &self.y
-    }
-    pub fn take(self) -> (Vec<T>, Vec<[T; Y]>) {
-        (self.t, self.y)
-    }
-}
-
 pub trait SolveIVP<T, const Y: usize>
 where
-    T: Float + Default,
+    T: Float + Default + ToString,
 {
     fn solve_ivp(self, t_0: T, t_max: T, y_0: [T; Y]) -> Result<Solution<T, Y>, Box<dyn Error>>;
 }
 
 pub struct RungeKutta<T, B, F, A, const S: usize, const Y: usize>
 where
-    T: Float,
+    T: Float + ToString,
     B: Butcher<T, S>,
     F: Fn(T, [T; Y], &A) -> Result<[T; Y], Box<dyn Error>>,
 {
@@ -64,7 +36,7 @@ where
 // Base Implementation
 impl<T, B, F, A, const S: usize, const Y: usize> RungeKutta<T, B, F, A, S, Y>
 where
-    T: Float + Default,
+    T: Float + Default + ToString,
     B: Butcher<T, S>,
     F: Fn(T, [T; Y], &A) -> Result<[T; Y], Box<dyn Error>>,
 {
@@ -87,7 +59,7 @@ where
 // Explicit Case
 impl<T, E, F, A, const S: usize, const Y: usize> Step for RungeKutta<T, E, F, A, S, Y>
 where
-    T: Float + Default + AddAssign,
+    T: Float + Default + AddAssign + ToString,
     E: Explicit<T, S>,
     F: Fn(T, [T; Y], &A) -> Result<[T; Y], Box<dyn Error>>,
 {
@@ -146,7 +118,7 @@ where
 
 impl<T, E, F, A, const S: usize, const Y: usize> SolveIVP<T, Y> for RungeKutta<T, E, F, A, S, Y>
 where
-    T: Float + Default + AddAssign,
+    T: Float + Default + AddAssign + ToString,
     E: Explicit<T, S>,
     F: Fn(T, [T; Y], &A) -> Result<[T; Y], Box<dyn Error>>,
 {
