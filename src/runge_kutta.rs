@@ -1,22 +1,27 @@
-use crate::solution::Solution;
 use crate::{
     butcher::{Butcher, Explicit, Implicit},
     errors::SolverError,
+    IvpSolution,
 };
 use num_traits::Float;
 use std::error::Error;
 use std::result::Result;
 use std::{cell::RefCell, ops::AddAssign};
 
-trait Step {
+trait Step<B, T, const S: usize>
+where
+    T: Float + Default,
+    B: Butcher<T, S>,
+{
     fn step(&self) -> Result<(), Box<dyn Error>>;
 }
 
-pub trait SolveIVP<T, const Y: usize>
+pub trait SolveIVP<B, T, const S: usize, const Y: usize>
 where
+    B: Butcher<T, S>,
     T: Float + Default + ToString,
 {
-    fn solve_ivp(self, t_0: T, t_max: T, y_0: [T; Y]) -> Result<Solution<T, Y>, Box<dyn Error>>;
+    fn solve_ivp(self, t_0: T, t_max: T, y_0: [T; Y]) -> Result<IvpSolution<T, Y>, Box<dyn Error>>;
 }
 
 pub struct RungeKutta<T, B, F, A, const S: usize, const Y: usize>
@@ -51,13 +56,13 @@ where
         }
     }
 
-    fn into_solution(self) -> Solution<T, Y> {
-        Solution::new(self.t.into_inner(), self.y.into_inner())
+    fn into_solution(self) -> IvpSolution<T, Y> {
+        IvpSolution::new(self.t.into_inner(), self.y.into_inner())
     }
 }
 
-// Explicit Case
-impl<T, E, F, A, const S: usize, const Y: usize> Step for RungeKutta<T, E, F, A, S, Y>
+// Explicit Step
+impl<T, E, F, A, const S: usize, const Y: usize> Step<E, T, S> for RungeKutta<T, E, F, A, S, Y>
 where
     T: Float + Default + AddAssign + ToString,
     E: Explicit<T, S>,
@@ -106,6 +111,9 @@ where
             for i in 0..S {
                 y_np1[d] += *h * b[i] * k[i][d]
             }
+            if y_np1[d].is_nan() {
+                return Err(SolverError::Convergence(d).into());
+            }
         }
 
         // Append to state info
@@ -116,13 +124,15 @@ where
     }
 }
 
-impl<T, E, F, A, const S: usize, const Y: usize> SolveIVP<T, Y> for RungeKutta<T, E, F, A, S, Y>
+// Explicit Solve
+impl<T, E, F, A, const S: usize, const Y: usize> SolveIVP<E, T, S, Y>
+    for RungeKutta<T, E, F, A, S, Y>
 where
     T: Float + Default + AddAssign + ToString,
     E: Explicit<T, S>,
     F: Fn(T, [T; Y], &A) -> Result<[T; Y], Box<dyn Error>>,
 {
-    fn solve_ivp(self, t_0: T, t_max: T, y_0: [T; Y]) -> Result<Solution<T, Y>, Box<dyn Error>> {
+    fn solve_ivp(self, t_0: T, t_max: T, y_0: [T; Y]) -> Result<IvpSolution<T, Y>, Box<dyn Error>> {
         self.t.replace(vec![t_0]);
         self.y.replace(vec![y_0]);
 
@@ -148,3 +158,15 @@ where
         Ok(self.into_solution())
     }
 }
+
+// // Implicit Step
+// impl<T, I, F, A, const S: usize, const Y: usize> Step<I, T, S> for RungeKutta<T, I, F, A, S, Y>
+// where
+//     T: Float + Default + AddAssign + ToString,
+//     I: Implicit<T, S> ,
+//     F: Fn(T, [T; Y], &A) -> Result<[T; Y], Box<dyn Error>>,
+// {
+//     fn step(&self) -> Result<(), Box<dyn Error>> {
+//         todo!()
+//     }
+// }

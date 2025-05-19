@@ -19,6 +19,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let solver = RungeKutta::new(RK4, pendulum, args, delta_t);
     let solution = solver.solve_ivp(t_0, t_max, y_0)?;
-    solution.to_csv("rk4_result.csv")?;
+    //solution.to_csv("rk4_result.csv")?;
     Ok(())
 }

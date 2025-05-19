@@ -1,8 +1,8 @@
-use csv::Writer;
+// use csv::Writer;
 use num_traits::Float;
 use std::path::Path;
 
-pub struct Solution<T, const Y: usize>
+pub struct IvpSolution<T, const Y: usize>
 where
     T: Float + ToString,
 {
@@ -10,7 +10,7 @@ where
     y: Vec<[T; Y]>,
 }
 
-impl<T, const Y: usize> Solution<T, Y>
+impl<T, const Y: usize> IvpSolution<T, Y>
 where
     T: Float + ToString,
 {
@@ -26,26 +26,26 @@ where
     pub fn take(self) -> (Vec<T>, Vec<[T; Y]>) {
         (self.t, self.y)
     }
-    pub fn to_csv(&self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
-        let path = Path::new(path);
-        let mut wtr = Writer::from_path(path)?;
-
-        // Write header
-        let header: Vec<String> = std::iter::once("t".to_string())
-            .chain((0..Y).map(|i| format!("y{}", i)))
-            .collect();
-        wtr.write_record(header)?;
-
-        // Write rows
-        for (t_value, y_values) in self.t.iter().zip(self.y.iter()) {
-            let mut record: Vec<String> = vec![t_value.to_string()];
-            for &y_value in y_values.iter() {
-                record.push(y_value.to_string());
-            }
-            wtr.write_record(record)?;
-        }
-
-        wtr.flush()?;
-        Ok(())
-    }
+    // pub fn to_csv(&self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    //     let path = Path::new(path);
+    //     let mut wtr = Writer::from_path(path)?;
+    //
+    //     // Write header
+    //     let header: Vec<String> = std::iter::once("t".to_string())
+    //         .chain((0..Y).map(|i| format!("y{}", i)))
+    //         .collect();
+    //     wtr.write_record(header)?;
+    //
+    //     // Write rows
+    //     for (t_value, y_values) in self.t.iter().zip(self.y.iter()) {
+    //         let mut record: Vec<String> = vec![t_value.to_string()];
+    //         for &y_value in y_values.iter() {
+    //             record.push(y_value.to_string());
+    //         }
+    //         wtr.write_record(record)?;
+    //     }
+    //
+    //     wtr.flush()?;
+    //     Ok(())
+    // }
 }
